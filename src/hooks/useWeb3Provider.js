@@ -1,4 +1,4 @@
-import { BrowserProvider, ethers, JsonRpcSigner } from 'ethers';
+import { BrowserProvider, ethers } from 'ethers';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 
@@ -28,7 +28,9 @@ const useWeb3Provider = () => {
             const accounts = await provider.send('eth_requestAccounts', []);
 
             if (accounts.length > 0) {
-                const signer = provider.getSigner();
+                const signer = await provider.getSigner();
+                console.log('Signer:', signer);
+
                 const chain = Number(
                     await (
                         await provider.getNetwork()
@@ -66,18 +68,55 @@ const useWeb3Provider = () => {
     };
 
     const getBalance = useCallback(async () => {
-        if (!state.signer) return null;
+        if (!state.signer || !state.provider) return null;
 
         try {
-            const balance = await state.signer.getBalance();
-            const formattedBalance = ethers.utils.formatEther(balance);
-            console.log('Balance:', formattedBalance);
-            return formattedBalance;
+            const address = await state.signer.getAddress();
+            const balance = await state.provider.getBalance(address);
+            return ethers.formatEther(balance);
         } catch (error) {
             console.error('Error fetching balance:', error);
             return null;
         }
-    }, [state.signer]);
+    }, [state.signer, state.provider]);
+
+    const getNFTsFromWallet = useCallback(async () => {
+        if (!state.address || !state.provider) return [];
+
+        try {
+            const contractAddress =
+                '0x0xf22063aC68185A967eb71a2f5b877336b64bF9E1'; // Remplacez par l'adresse de votre contrat
+            const contractABI = [
+                // Remplacez par l'ABI de votre contrat
+                'function balanceOf(address owner) view returns (uint256)',
+                'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
+                'function tokenURI(uint256 tokenId) view returns (string)',
+            ];
+
+            const contract = new ethers.Contract(
+                contractAddress,
+                contractABI,
+                state.provider,
+            );
+
+            const balance = await contract.balanceOf(state.address);
+            const nfts = [];
+
+            for (let i = 0; i < balance; i++) {
+                const tokenId = await contract.tokenOfOwnerByIndex(
+                    state.address,
+                    i,
+                );
+                const tokenURI = await contract.tokenURI(tokenId);
+                nfts.push({ tokenId, tokenURI });
+            }
+
+            return nfts;
+        } catch (error) {
+            console.error('Error fetching NFTs from wallet:', error);
+            return [];
+        }
+    }, [state.address, state.provider]);
 
     useEffect(() => {
         if (window == null) return;
@@ -107,6 +146,7 @@ const useWeb3Provider = () => {
         connectWallet,
         disconnect,
         getBalance,
+        getNFTsFromWallet,
         state,
     };
 };

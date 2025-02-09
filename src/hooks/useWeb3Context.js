@@ -5,7 +5,8 @@ import useWeb3Provider from './useWeb3Provider';
 const Web3Context = createContext(null);
 
 const Web3ContextProvider = ({ children }) => {
-    const { connectWallet, disconnect, getBalance, state } = useWeb3Provider();
+    const { connectWallet, disconnect, getBalance, getNFTsFromWallet, state } =
+        useWeb3Provider();
 
     return (
         <Web3Context.Provider
@@ -13,6 +14,7 @@ const Web3ContextProvider = ({ children }) => {
                 connectWallet,
                 disconnect,
                 getBalance,
+                getNFTsFromWallet,
                 state,
             }}>
             {children}
