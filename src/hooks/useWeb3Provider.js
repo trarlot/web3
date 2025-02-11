@@ -1,6 +1,11 @@
-import { BrowserProvider, ethers } from 'ethers';
+import { ethers } from 'ethers';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
+import Web3Modal from 'web3modal';
+
+const providerOptions = {
+    // Ajoute ici d'autres providers (WalletConnect, Coinbase, etc.)
+};
 
 const useWeb3Provider = () => {
     const initialWeb3State = {
@@ -17,38 +22,41 @@ const useWeb3Provider = () => {
         if (state.isAuthenticated) return;
 
         try {
-            const { ethereum } = window;
-            if (!ethereum) {
-                return toast.error('No ethereum wallet found', {
-                    position: 'top-right',
-                });
-            }
-            const provider = new ethers.BrowserProvider(ethereum);
+            console.log('Initialisation de Web3Modal...');
+            const web3Modal = new Web3Modal({
+                cacheProvider: true, // Garde en mémoire le wallet utilisé
+                providerOptions,
+            });
 
-            const accounts = await provider.send('eth_requestAccounts', []);
+            console.log('Connexion à Web3Modal...');
+            const instance = await web3Modal.connect();
+            console.log('Instance obtenue :', instance);
 
-            if (accounts.length > 0) {
-                const signer = await provider.getSigner();
-                console.log('Signer:', signer);
+            // Utilisation correcte de Web3Provider pour ethers v6
+            const provider = new ethers.BrowserProvider(instance);
+            console.log('Provider créé :', provider);
 
-                const chain = Number(
-                    await (
-                        await provider.getNetwork()
-                    ).chainId,
-                );
+            const signer = await provider.getSigner();
+            console.log('Signer obtenu :', signer);
 
-                setState({
-                    ...state,
-                    address: accounts[0],
-                    signer,
-                    currentChain: chain,
-                    provider,
-                    isAuthenticated: true,
-                });
+            const address = await signer.getAddress();
+            console.log('Adresse connectée :', address);
 
-                localStorage.setItem('isAuthenticated', 'true');
-            }
+            const chain = Number(await (await provider.getNetwork()).chainId);
+            console.log('ID de la chaîne :', chain);
+
+            setState({
+                ...state,
+                address,
+                signer,
+                currentChain: chain,
+                provider,
+                isAuthenticated: true,
+            });
+
+            localStorage.setItem('isAuthenticated', 'true');
         } catch (error) {
+            console.error('Erreur lors de la connexion :', error);
             if (error.code === 4001) {
                 // Code d'erreur pour "User rejected the request"
                 toast.error("Connexion refusée par l'utilisateur", {
@@ -81,42 +89,24 @@ const useWeb3Provider = () => {
     }, [state.signer, state.provider]);
 
     const getNFTsFromWallet = useCallback(async () => {
-        if (!state.address || !state.provider) return [];
+        if (!state.address) return [];
 
         try {
-            const contractAddress =
-                '0x0xf22063aC68185A967eb71a2f5b877336b64bF9E1'; // Remplacez par l'adresse de votre contrat
-            const contractABI = [
-                // Remplacez par l'ABI de votre contrat
-                'function balanceOf(address owner) view returns (uint256)',
-                'function tokenOfOwnerByIndex(address owner, uint256 index) view returns (uint256)',
-                'function tokenURI(uint256 tokenId) view returns (string)',
-            ];
-
-            const contract = new ethers.Contract(
-                contractAddress,
-                contractABI,
-                state.provider,
+            const response = await fetch(
+                `https://api.opensea.io/api/v1/assets?owner=${state.address}&order_direction=desc&offset=0&limit=20`,
             );
-
-            const balance = await contract.balanceOf(state.address);
-            const nfts = [];
-
-            for (let i = 0; i < balance; i++) {
-                const tokenId = await contract.tokenOfOwnerByIndex(
-                    state.address,
-                    i,
-                );
-                const tokenURI = await contract.tokenURI(tokenId);
-                nfts.push({ tokenId, tokenURI });
-            }
-
-            return nfts;
+            const data = await response.json();
+            return data.assets.map((asset) => ({
+                tokenId: asset.token_id,
+                tokenURI: asset.image_url,
+                name: asset.name,
+                description: asset.description,
+            }));
         } catch (error) {
             console.error('Error fetching NFTs from wallet:', error);
             return [];
         }
-    }, [state.address, state.provider]);
+    }, [state.address]);
 
     useEffect(() => {
         if (window == null) return;
