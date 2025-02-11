@@ -8,7 +8,7 @@ import useWeb3Provider from '../../hooks/useWeb3Provider';
 
 const Nft = () => {
     const [nfts, setNfts] = React.useState([]);
-    const { getNFTsFromWallet } = useWeb3Provider();
+    const { getNFTsFromWallet, state } = useWeb3Provider();
 
     useEffect(() => {
         gsap.registerPlugin(ScrollTrigger);
@@ -45,12 +45,19 @@ const Nft = () => {
         );
 
         const fetchNfts = async () => {
+            if (!state.address) {
+                console.log('No address found, please connect your wallet.');
+                return;
+            }
+
+            console.log('Fetching NFTs for address:', state.address);
             const data = await getNFTsFromWallet();
+            console.log('NFTs fetched:', data);
             setNfts(data);
         };
 
         fetchNfts();
-    }, [getNFTsFromWallet]);
+    }, [getNFTsFromWallet, state.address]);
 
     return (
         <div
