@@ -1,7 +1,6 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card } from '../../common/Card';
 import Image from 'next/image';
-import { useEffect } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import useWeb3Provider from '../../hooks/useWeb3Provider';
@@ -60,20 +59,17 @@ const Nft = () => {
     }, [getNFTsFromWallet, state.address]);
 
     return (
-        <div
-            id="nft"
-            className="flex w-full justify-end items-center  h-screen">
+        <div id="nft" className="flex w-full justify-end items-center h-screen">
             <div className="flex flex-col justify-center w-1/2 items-center">
                 <div className="grid grid-cols-2 gap-4">
-                    {nfts.map((nft, index) => (
-                        <Card key={index}>
+                    {nfts.slice(0, 4).map((nft, index) => (
+                        <Card key={index} className="p-0">
                             <Image
                                 src={nft.tokenURI}
                                 alt={`NFT ${nft.tokenId}`}
                                 width={200}
                                 height={200}
                             />
-                            <div>{`Token ID: ${nft.tokenId}`}</div>
                         </Card>
                     ))}
                 </div>

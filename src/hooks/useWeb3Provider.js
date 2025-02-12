@@ -2,10 +2,18 @@ import { ethers } from 'ethers';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'react-toastify';
 import Web3Modal from 'web3modal';
+import { Network, Alchemy } from 'alchemy-sdk';
 
 const providerOptions = {
     // Ajoute ici d'autres providers (WalletConnect, Coinbase, etc.)
 };
+
+const settings = {
+    apiKey: 'eJ_-_CEY1Q0dKIqVr0Etz_NU7fbyr5Y1', // Remplacez par votre clé API Alchemy
+    network: Network.ETH_MAINNET,
+};
+
+const alchemy = new Alchemy(settings);
 
 const useWeb3Provider = () => {
     const initialWeb3State = {
@@ -22,28 +30,21 @@ const useWeb3Provider = () => {
         if (state.isAuthenticated) return;
 
         try {
-            console.log('Initialisation de Web3Modal...');
             const web3Modal = new Web3Modal({
                 cacheProvider: true, // Garde en mémoire le wallet utilisé
                 providerOptions,
             });
 
-            console.log('Connexion à Web3Modal...');
             const instance = await web3Modal.connect();
-            console.log('Instance obtenue :', instance);
 
             // Utilisation correcte de Web3Provider pour ethers v6
             const provider = new ethers.BrowserProvider(instance);
-            console.log('Provider créé :', provider);
 
             const signer = await provider.getSigner();
-            console.log('Signer obtenu :', signer);
 
             const address = await signer.getAddress();
-            console.log('Adresse connectée :', address);
 
             const chain = Number(await (await provider.getNetwork()).chainId);
-            console.log('ID de la chaîne :', chain);
 
             setState({
                 ...state,
@@ -92,16 +93,26 @@ const useWeb3Provider = () => {
         if (!state.address) return [];
 
         try {
-            const response = await fetch(
-                `https://api.opensea.io/api/v1/assets?owner=${state.address}&order_direction=desc&offset=0&limit=20`,
+            const nftsForOwner = await alchemy.nft.getNftsForOwner(
+                state.address,
             );
-            const data = await response.json();
-            return data.assets.map((asset) => ({
-                tokenId: asset.token_id,
-                tokenURI: asset.image_url,
-                name: asset.name,
-                description: asset.description,
-            }));
+
+            return nftsForOwner.ownedNfts.map((nft) => {
+                // Essayez d'autres propriétés pour l'URL de l'image
+                const imageUrl =
+                    nft.image.originalUrl &&
+                    nft.image.originalUrl.endsWith('.png')
+                        ? nft.image.originalUrl
+                        : '/assets/bitcoinLogo.svg'; // URL par défaut
+
+                return {
+                    tokenId: nft.tokenId,
+                    tokenURI: imageUrl,
+                    image: imageUrl,
+                    name: nft.title || 'Unknown Name',
+                    description: nft.description || 'No description available',
+                };
+            });
         } catch (error) {
             console.error('Error fetching NFTs from wallet:', error);
             return [];
